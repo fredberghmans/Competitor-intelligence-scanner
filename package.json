@@ -9,7 +9,10 @@
     "lint": "eslint",
     "scan": "tsx scripts/runScan.ts",
     "scan:dry": "tsx scripts/runScan.ts --dry-run",
-    "scan:force": "tsx scripts/runScan.ts --force"
+    "scan:force": "tsx scripts/runScan.ts --force",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepare": "husky"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -31,8 +34,10 @@
     "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
+    "husky": "^9.1.7",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.1"
   }
 }

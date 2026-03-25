@@ -1,0 +1,4 @@
+#!/bin/sh
+# Run regression tests before every commit.
+# The commit is aborted if any test fails.
+npm test

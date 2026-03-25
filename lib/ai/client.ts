@@ -69,19 +69,46 @@ export function parseJSON<T>(raw: string): T {
     } catch {}
   }
 
-  // Find first { or [ and parse from there
-  const obj = raw.indexOf('{')
-  const arr = raw.indexOf('[')
-  const start =
-    obj === -1 ? arr : arr === -1 ? obj : Math.min(obj, arr)
-
-  if (start !== -1) {
+  // Walk the string to find the exact JSON substring (handles trailing prose)
+  const extracted = extractJsonSubstring(raw)
+  if (extracted) {
     try {
-      return JSON.parse(raw.slice(start)) as T
+      return JSON.parse(extracted) as T
     } catch {}
   }
 
   throw new Error(`Could not parse JSON from model response:\n${raw.slice(0, 300)}`)
+}
+
+/**
+ * Finds the first complete JSON object or array in a string by counting
+ * brackets. Correctly ignores brackets inside string literals.
+ * Returns null if no valid JSON structure is found.
+ */
+function extractJsonSubstring(text: string): string | null {
+  for (let i = 0; i < text.length; i++) {
+    const opener = text[i]
+    if (opener !== '{' && opener !== '[') continue
+
+    const closer = opener === '{' ? '}' : ']'
+    let depth = 0
+    let inString = false
+    let escaped = false
+
+    for (let j = i; j < text.length; j++) {
+      const ch = text[j]
+      if (escaped) { escaped = false; continue }
+      if (ch === '\\' && inString) { escaped = true; continue }
+      if (ch === '"') { inString = !inString; continue }
+      if (inString) continue
+      if (ch === opener) depth++
+      else if (ch === closer) {
+        depth--
+        if (depth === 0) return text.slice(i, j + 1)
+      }
+    }
+  }
+  return null
 }
 
 /** Structured console logger for the AI pipeline. */
