@@ -1,7 +1,7 @@
 import type { DiffChunk } from '@/lib/diff'
 import type { Criteria } from '@/lib/supabase/types'
 import type { ClassifiedChunk, Relevance } from './types'
-import { callClaude, parseJSON, log, MODELS } from './client'
+import { callAI, parseJSON, log } from './client'
 import { classificationSystem, classificationUser } from './prompts'
 import { getCache, setCache } from './cache'
 
@@ -65,8 +65,8 @@ async function classifyOne(
   }
 
   try {
-    const raw = await callClaude(
-      MODELS.cheap,
+    const raw = await callAI(
+      'cheap',
       classificationSystem(),
       classificationUser(chunk.content, criteria),
       256,

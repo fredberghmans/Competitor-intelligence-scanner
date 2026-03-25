@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { getSettings } from '@/lib/settings'
+import { callGemini } from './gemini'
 
 export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -49,6 +51,28 @@ export async function callClaude(
   const block = response.content[0]
   if (block.type !== 'text') throw new Error('Unexpected non-text response from Claude')
   return block.text
+}
+
+/**
+ * Unified AI call — routes to Anthropic or Gemini based on the saved provider setting.
+ * Drop-in replacement for callClaude() across classify, extract, and insights stages.
+ */
+export async function callAI(
+  modelKey: ModelKey,
+  system: string,
+  user: string,
+  maxTokens = 1024,
+): Promise<string> {
+  const settings = await getSettings()
+
+  if (settings.ai_provider === 'gemini') {
+    const apiKey = settings.gemini_api_key
+    if (!apiKey) throw new Error('Gemini API key is not configured. Add it in Settings.')
+    return callGemini(modelKey, system, user, apiKey, maxTokens)
+  }
+
+  // Default: Anthropic
+  return callClaude(MODELS[modelKey], system, user, maxTokens)
 }
 
 /**

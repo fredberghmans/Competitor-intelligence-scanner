@@ -46,7 +46,20 @@ const NOISE_SELECTORS = [
  * Note: This does not execute JavaScript. Content rendered client-side
  * (React SPAs, etc.) will be missing. See TRADEOFFS.md for details.
  */
-export function cleanContent(html: string): string {
+export function cleanContent(html: string, source?: 'direct' | 'jina'): string {
+  // Jina Reader already returns clean Markdown — skip cheerio and just normalise whitespace
+  if (source === 'jina') {
+    return html
+      .replace(/\t/g, ' ')
+      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 1)
+      .join('\n')
+      .trim()
+  }
+
   const $ = cheerio.load(html)
 
   // Remove noise elements

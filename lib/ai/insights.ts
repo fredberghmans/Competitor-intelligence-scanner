@@ -1,6 +1,6 @@
 import type { DataPoint } from '@/lib/supabase/types'
 import type { ExtractedDataPoint, InsightOutput } from './types'
-import { callClaude, parseJSON, log, MODELS } from './client'
+import { callAI, parseJSON, log } from './client'
 import { insightsSystem, insightsUser } from './prompts'
 import { getCache, setCache } from './cache'
 import { generateHash } from '@/lib/crawler/hash'
@@ -56,8 +56,8 @@ export async function generateInsights(
   log('insights', `Generating insights for ${competitorName} from ${dataPoints.length} data point(s)`)
 
   try {
-    const raw = await callClaude(
-      MODELS.advanced,
+    const raw = await callAI(
+      'advanced',
       insightsSystem(),
       insightsUser(competitorName, dataPoints, referenceDataPoints),
       2048,

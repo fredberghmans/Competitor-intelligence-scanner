@@ -1,6 +1,6 @@
 import type { Criteria } from '@/lib/supabase/types'
 import type { ClassifiedChunk, ExtractedDataPoint } from './types'
-import { callClaude, parseJSON, log, MODELS } from './client'
+import { callAI, parseJSON, log } from './client'
 import { extractionSystem, extractionUser } from './prompts'
 import { getCache, setCache } from './cache'
 
@@ -72,8 +72,8 @@ async function extractOne(
   }
 
   try {
-    const raw = await callClaude(
-      MODELS.cheap,
+    const raw = await callAI(
+      'cheap',
       extractionSystem(),
       extractionUser(classified, competitorName, sourceUrl),
       512,
@@ -87,14 +87,23 @@ async function extractOne(
 
     const dataPoints: ExtractedDataPoint[] = parsed
       .filter((item) => item.value && item.criteria_name && item.confidence)
-      .map((item) => ({
-        criteria_name: item.criteria_name,
-        criteria_id: criteriaByName.get(item.criteria_name),
-        value: item.value,
-        confidence: item.confidence,
-        source_url: sourceUrl,
-        raw_chunk: classified.chunk.content,
-      }))
+      .map((item) => {
+        const exactId = criteriaByName.get(item.criteria_name)
+        const criteria_id = exactId ?? allCriteria.find(
+          (c) => c.name.toLowerCase() === item.criteria_name.toLowerCase()
+        )?.id
+        if (!exactId && criteria_id) {
+          console.warn(`[ai:extract] Fuzzy-matched criteria "${item.criteria_name}" → "${allCriteria.find(c => c.id === criteria_id)?.name}"`)
+        }
+        return {
+          criteria_name: item.criteria_name,
+          criteria_id,
+          value: item.value,
+          confidence: item.confidence,
+          source_url: sourceUrl,
+          raw_chunk: classified.chunk.content,
+        }
+      })
 
     log('extract', `Chunk → ${dataPoints.length} data point(s)`, dataPoints.map((d) => d.value))
     setCache(cacheKey, dataPoints)

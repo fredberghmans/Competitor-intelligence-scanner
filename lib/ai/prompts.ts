@@ -71,7 +71,7 @@ ${chunk.chunk.type === 'changed' && chunk.chunk.previousContent
 Extract factual data points. Respond with a JSON array:
 [
   {
-    "criteria_name": "exact criteria name from: ${chunk.criteria.join(', ')}",
+    "criteria_name": "<one of these values, copied verbatim: ${chunk.criteria.map((n, i) => `${i + 1}. ${n}`).join(' | ')}>"
     "value": "concise factual statement, e.g. 'Staking yield: 5% APY'",
     "confidence": "high" | "medium",
     "note": "optional: clarification or caveat"

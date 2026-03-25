@@ -82,3 +82,69 @@ export async function fetchPage(
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
+
+/**
+ * Fetches a URL using Jina Reader (https://r.jina.ai), which runs a headless
+ * browser and returns clean Markdown. Handles JavaScript-rendered SPAs and PDFs.
+ *
+ * Returns null if Jina fails or returns no meaningful content.
+ */
+async function fetchPageWithJina(
+  url: string,
+  { timeoutMs = 25_000 }: Pick<FetchOptions, 'timeoutMs'> = {},
+): Promise<FetchResult | null> {
+  const jinaUrl = `https://r.jina.ai/${url}`
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const res = await fetch(jinaUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': USER_AGENT,
+        Accept: 'text/plain, text/markdown',
+        'X-Return-Format': 'markdown',
+      },
+    })
+    clearTimeout(timer)
+
+    if (!res.ok) return null
+
+    const text = await res.text()
+    if (!text || text.length < 100) return null
+
+    return { url, html: text, status: res.status, source: 'jina' }
+  } catch (err) {
+    clearTimeout(timer)
+    console.warn(`[crawler] Jina fetch failed for ${url}: ${err instanceof Error ? err.message : String(err)}`)
+    return null
+  }
+}
+
+/**
+ * Fetches a URL with Jina Reader as fallback for thin or PDF content.
+ *
+ * Strategy:
+ *   1. Try a direct static fetch first (fast, free, no rate limits).
+ *   2. If the HTML is thin (< 5 KB — a sign of SPA shell) or the URL is a PDF,
+ *      fall back to Jina Reader which renders JS and extracts PDFs.
+ *   3. Return whichever result has more content.
+ */
+export async function fetchPageWithFallback(
+  url: string,
+  options: FetchOptions = {},
+): Promise<FetchResult | null> {
+  const isPdf = /\.pdf(\?|$)/i.test(url)
+
+  if (!isPdf) {
+    const direct = await fetchPage(url, options)
+    // If we got a rich HTML page (> 5 KB), use it directly
+    if (direct && direct.html.length >= 5_000) {
+      return { ...direct, source: 'direct' }
+    }
+    // Thin or missing — fall through to Jina
+  }
+
+  const jina = await fetchPageWithJina(url, { timeoutMs: 25_000 })
+  return jina
+}

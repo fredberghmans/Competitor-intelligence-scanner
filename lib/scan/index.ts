@@ -3,8 +3,10 @@ import { getCriteria } from '@/lib/criteria'
 import { crawlCompetitor } from '@/lib/crawler'
 import { splitIntoChunks, estimateTokens } from '@/lib/diff'
 import { diffPages, storeChangeEvent, getPreviousPage, formatChunksForAI } from '@/lib/diff'
-import { runPipeline } from '@/lib/ai'
+import { runPipeline, saveDataPoints, saveInsights } from '@/lib/ai'
+import { generateInsights } from '@/lib/ai/insights'
 import type { DiffChunk, DiffResult } from '@/lib/diff'
+import { researchCompetitor } from '@/lib/research'
 import { createScan, updateScanStatus, insertPage, getAllCompetitorIds } from './db'
 import type { ScanSummary, ScanError, RunScanOptions } from './types'
 
@@ -220,6 +222,75 @@ export async function runScanForAll(options: RunScanOptions = {}): Promise<ScanS
   }
 
   return results
+}
+
+// ---------------------------------------------------------------------------
+// Research Agent
+// ---------------------------------------------------------------------------
+
+/**
+ * Runs the AI research agent for a single competitor.
+ *
+ * Instead of crawling pages, Claude uses the web_search tool to autonomously
+ * find and extract data for each criterion — similar to how ChatGPT/Gemini
+ * would research a company. More expensive but thorough, especially for
+ * JS-heavy SPAs and PDF factsheets that the crawler can't reach.
+ *
+ * Triggered via POST /api/scans?mode=research
+ */
+export async function runResearchForCompetitor(
+  competitorId: string,
+  options: RunScanOptions = {},
+): Promise<ScanSummary> {
+  const startTime = Date.now()
+
+  const competitor = await getCompetitor(competitorId)
+  if (!competitor) throw new Error(`Competitor not found: ${competitorId}`)
+
+  const criteria = await getCriteria()
+
+  log(`▶ Starting research agent for ${competitor.name}`)
+
+  const scan = await createScan(competitorId)
+  log(`  Scan ID: ${scan.id}`)
+
+  try {
+    const { dataPoints, sourcesVisited, turnsUsed } = await researchCompetitor(competitor, criteria)
+
+    log(`  Agent done — ${dataPoints.length} data point(s), ${turnsUsed} turn(s), ${sourcesVisited.length} source(s)`)
+
+    const validPoints = dataPoints.filter((d) => d.criteria_id)
+    const errors: ScanError[] = dataPoints
+      .filter((d) => !d.criteria_id)
+      .map((d) => ({ stage: 'ai' as const, message: `Unresolved criteria: ${d.criteria_name}` }))
+
+    if (!options.dryRun && validPoints.length > 0) {
+      await saveDataPoints(competitor.id, scan.id, validPoints)
+
+      const insights = await generateInsights(competitor.name, validPoints)
+      if (insights) await saveInsights(competitor.id, scan.id, insights)
+    }
+
+    if (!options.dryRun) await updateScanStatus(scan.id, 'completed')
+
+    const durationMs = Date.now() - startTime
+    return {
+      scanId: scan.id,
+      competitorId,
+      competitorName: competitor.name,
+      status: 'completed',
+      pagesFound: sourcesVisited.length,
+      pagesChanged: 0,
+      newPages: 0,
+      dataPointsExtracted: validPoints.length,
+      insightsGenerated: false,
+      errors,
+      durationMs,
+    }
+  } catch (err) {
+    if (!options.dryRun) await updateScanStatus(scan.id, 'failed').catch(() => {})
+    throw err
+  }
 }
 
 // ---------------------------------------------------------------------------

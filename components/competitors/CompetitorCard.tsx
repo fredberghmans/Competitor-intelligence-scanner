@@ -1,9 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useTransition, useState } from 'react'
+import { useTransition, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2, Globe, MapPin, Play, CheckCircle, AlertCircle, Loader2, Lightbulb, TableProperties } from 'lucide-react'
+import { Pencil, Trash2, Globe, MapPin, Play, CheckCircle, AlertCircle, Loader2, Lightbulb, TableProperties, ChevronDown } from 'lucide-react'
 import Badge, { competitorTypeBadge, competitorTypeLabel } from '@/components/ui/badge'
 import { deleteCompetitorAction } from '@/lib/actions/competitors'
 import type { Competitor, Scan } from '@/lib/supabase/types'
@@ -58,6 +58,20 @@ export default function CompetitorCard({
   const [isPending, startTransition] = useTransition()
   const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
   const [scanMessage, setScanMessage] = useState<string>('')
+  const [scanMode, setScanMode] = useState<'crawl' | 'research' | 'both'>('crawl')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!dropdownOpen) return
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [dropdownOpen])
 
   function handleDelete() {
     if (!confirm(`Delete "${competitor.name}"? This cannot be undone.`)) return
@@ -67,29 +81,72 @@ export default function CompetitorCard({
     })
   }
 
-  async function handleRunScan() {
+  async function handleRunScan(mode: 'crawl' | 'research' | 'both' = scanMode) {
     setScanStatus('running')
-    setScanMessage('')
+    setScanMessage(mode === 'research' ? 'Starting…' : '')
+    setDropdownOpen(false)
     try {
-      const res = await fetch('/api/scans', {
+      const res = await fetch(`/api/scans?mode=${mode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ competitorId: competitor.id }),
       })
-      const data = await res.json()
+
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
         setScanStatus('error')
         setScanMessage(data?.error ?? 'Scan failed')
-      } else {
-        setScanStatus('done')
-        const summary = data?.summary
-        setScanMessage(
-          summary
-            ? `${summary.pagesFound ?? 0} pages · ${summary.pagesChanged ?? 0} changes`
-            : 'Scan complete'
-        )
-        router.refresh()
+        return
       }
+
+      // Research mode streams SSE — read progress events in real time
+      if (mode === 'research' && res.headers.get('content-type')?.includes('text/event-stream')) {
+        const reader = res.body!.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            try {
+              const event = JSON.parse(line.slice(6))
+              if (event.type === 'turn') {
+                const label = event.query ? `"${event.query.slice(0, 40)}${event.query.length > 40 ? '…' : ''}"` : 'searching…'
+                setScanMessage(`Turn ${event.turn}/${event.maxTurns} · ${label}`)
+              } else if (event.type === 'result') {
+                setScanStatus('done')
+                const s = event.summary
+                setScanMessage(
+                  s ? `${s.dataPointsExtracted ?? 0} extracted · ${s.pagesFound ?? 0} sources` : 'Research complete'
+                )
+                router.refresh()
+              } else if (event.type === 'error') {
+                setScanStatus('error')
+                setScanMessage(event.message ?? 'Research failed')
+              }
+            } catch {
+              // malformed event line — skip
+            }
+          }
+        }
+        return
+      }
+
+      // Crawl mode (or both) — regular JSON response
+      const data = await res.json()
+      setScanStatus('done')
+      const summary = data?.summary ?? data?.crawl
+      setScanMessage(
+        summary
+          ? `${summary.pagesFound ?? 0} pages · ${summary.dataPointsExtracted ?? summary.pagesChanged ?? 0} extracted`
+          : 'Scan complete'
+      )
+      router.refresh()
     } catch {
       setScanStatus('error')
       setScanMessage('Network error')
@@ -159,7 +216,7 @@ export default function CompetitorCard({
       ) : null}
 
       {/* Actions */}
-      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
         <Link
           href={`/competitors/${competitor.id}/edit`}
           className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
@@ -181,18 +238,57 @@ export default function CompetitorCard({
           <TableProperties size={12} />
           Data
         </Link>
-        <button
-          onClick={handleRunScan}
-          disabled={scanStatus === 'running'}
-          className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 px-2.5 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {scanStatus === 'running' ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <Play size={12} />
+        {/* Split scan button with mode dropdown */}
+        <div className="relative flex items-center" ref={dropdownRef}>
+          <button
+            onClick={() => handleRunScan(scanMode)}
+            disabled={scanStatus === 'running'}
+            className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 px-2.5 py-1.5 rounded-l-lg hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {scanStatus === 'running' ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Play size={12} />
+            )}
+            {scanStatus === 'running'
+              ? 'Scanning…'
+              : scanMode === 'research'
+              ? 'Research'
+              : scanMode === 'both'
+              ? 'Crawl + Research'
+              : 'Run Scan'}
+          </button>
+          <button
+            onClick={() => setDropdownOpen((o) => !o)}
+            disabled={scanStatus === 'running'}
+            className="flex items-center px-1 py-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-r-lg border-l border-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Choose scan mode"
+          >
+            <ChevronDown size={11} />
+          </button>
+          {dropdownOpen && (
+            <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1">
+              {(
+                [
+                  { mode: 'crawl', label: 'Crawl', desc: 'Fast, static pages' },
+                  { mode: 'research', label: 'Research', desc: 'AI web search' },
+                  { mode: 'both', label: 'Crawl + Research', desc: 'Most thorough' },
+                ] as const
+              ).map(({ mode, label, desc }) => (
+                <button
+                  key={mode}
+                  onClick={() => { setScanMode(mode); setDropdownOpen(false) }}
+                  className={`w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors ${
+                    scanMode === mode ? 'text-indigo-600 font-medium' : 'text-slate-700'
+                  }`}
+                >
+                  <div>{label}</div>
+                  <div className="text-slate-400 font-normal">{desc}</div>
+                </button>
+              ))}
+            </div>
           )}
-          {scanStatus === 'running' ? 'Scanning…' : 'Run Scan'}
-        </button>
+        </div>
         <button
           onClick={handleDelete}
           className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-red-600 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors ml-auto"

@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Building2, Target, BarChart3, Clock, Cpu } from 'lucide-react'
+import { Building2, Target, BarChart3, Clock, Cpu, LogOut, Settings } from 'lucide-react'
+import { logoutAction } from '@/lib/actions/auth'
 
 const nav = [
   { href: '/competitors', label: 'Competitors', icon: Building2 },
@@ -11,7 +12,11 @@ const nav = [
   { href: '/changelog', label: 'Changelog', icon: Clock, soon: true },
 ]
 
-export default function Sidebar() {
+type Props = {
+  userEmail?: string
+}
+
+export default function Sidebar({ userEmail }: Props) {
   const pathname = usePathname()
 
   return (
@@ -66,11 +71,39 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-slate-200">
-        <p className="text-[11px] text-slate-400 leading-relaxed">
-          Only public data sources are processed.
-        </p>
+      {/* Settings */}
+      <div className="p-2 border-t border-slate-200">
+        <Link
+          href="/settings"
+          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            pathname.startsWith('/settings')
+              ? 'bg-indigo-50 text-indigo-700'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+        >
+          <Settings size={15} className={pathname.startsWith('/settings') ? 'text-indigo-600' : 'text-slate-400'} />
+          Settings
+        </Link>
+      </div>
+
+      {/* User / logout */}
+      <div className="p-3 border-t border-slate-200">
+        {userEmail && (
+          <div className="mb-2 px-2">
+            <p className="text-[11px] text-slate-500 truncate" title={userEmail}>
+              {userEmail}
+            </p>
+          </div>
+        )}
+        <form action={logoutAction}>
+          <button
+            type="submit"
+            className="flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          >
+            <LogOut size={13} />
+            Sign out
+          </button>
+        </form>
       </div>
     </aside>
   )

@@ -16,6 +16,8 @@ export type FetchResult = {
   url: string
   html: string
   status: number
+  /** 'jina' when content was fetched via Jina Reader (already clean markdown). */
+  source?: 'direct' | 'jina'
 }
 
 /**

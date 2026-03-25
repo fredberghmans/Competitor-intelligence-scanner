@@ -138,7 +138,7 @@ export default function CompetitorForm({ competitor }: Props) {
                   value={domain.url}
                   onChange={(e) => updateDomain(i, 'url', e.target.value)}
                   placeholder="https://example.com"
-                  type="url"
+                  type="text"
                   className="flex-1 text-sm outline-none placeholder:text-slate-400 bg-transparent"
                 />
                 <input
