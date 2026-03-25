@@ -1,37 +1,12 @@
-'use client'
+import { Cpu } from 'lucide-react'
+import { loginAction } from '@/lib/actions/auth'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Cpu, Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+type Props = {
+  searchParams: Promise<{ error?: string }>
+}
 
-export default function LoginPage() {
-  const router = useRouter()
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-
-    const fd = new FormData(e.currentTarget)
-    const email = fd.get('email') as string
-    const password = fd.get('password') as string
-
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
-
-    if (authError) {
-      setError('Invalid email or password')
-      setLoading(false)
-      return
-    }
-
-    // Full page navigation ensures cookies are sent with the request
-    // (router.push can race with cookie writes in some Next.js/Vercel environments)
-    window.location.href = '/competitors'
-  }
+export default async function LoginPage({ searchParams }: Props) {
+  const { error } = await searchParams
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -52,7 +27,7 @@ export default function LoginPage() {
             Enter your credentials to access the dashboard.
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form action={loginAction} className="space-y-4">
             <div className="space-y-1.5">
               <label htmlFor="email" className="block text-sm font-medium text-slate-700">
                 Email
@@ -91,11 +66,9 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
             >
-              {loading && <Loader2 size={14} className="animate-spin" />}
-              {loading ? 'Signing in…' : 'Sign in'}
+              Sign in
             </button>
           </form>
         </div>
