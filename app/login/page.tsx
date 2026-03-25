@@ -1,23 +1,37 @@
-import { Cpu } from 'lucide-react'
-import { loginAction } from '@/lib/actions/auth'
+'use client'
 
-type Props = {
-  searchParams: Promise<{ error?: string }>
-}
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Cpu, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
-/**
- * Login page — email/password only.
- *
- * No signup form. The admin account is created once via the Supabase dashboard
- * (Authentication → Users → Invite user). This keeps the app single-user for
- * now without any hard-coded role checks.
- *
- * To add SSO later: replace the <form> below with an OAuth button that calls
- * supabase.auth.signInWithOAuth(). The middleware and the rest of the app are
- * unaffected because they only care about the presence of a valid session.
- */
-export default async function LoginPage({ searchParams }: Props) {
-  const { error } = await searchParams
+export default function LoginPage() {
+  const router = useRouter()
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    const fd = new FormData(e.currentTarget)
+    const email = fd.get('email') as string
+    const password = fd.get('password') as string
+
+    const supabase = createClient()
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+
+    if (authError) {
+      setError('Invalid email or password')
+      setLoading(false)
+      return
+    }
+
+    // Browser client sets the session cookie directly — router.push sends it on the next request
+    router.push('/competitors')
+    router.refresh()
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -38,7 +52,7 @@ export default async function LoginPage({ searchParams }: Props) {
             Enter your credentials to access the dashboard.
           </p>
 
-          <form action={loginAction} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <label htmlFor="email" className="block text-sm font-medium text-slate-700">
                 Email
@@ -77,9 +91,11 @@ export default async function LoginPage({ searchParams }: Props) {
 
             <button
               type="submit"
-              className="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+              disabled={loading}
+              className="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Sign in
+              {loading && <Loader2 size={14} className="animate-spin" />}
+              {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
         </div>
