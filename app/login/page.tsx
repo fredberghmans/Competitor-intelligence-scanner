@@ -28,9 +28,9 @@ export default function LoginPage() {
       return
     }
 
-    // Browser client sets the session cookie directly — router.push sends it on the next request
-    router.push('/competitors')
-    router.refresh()
+    // Full page navigation ensures cookies are sent with the request
+    // (router.push can race with cookie writes in some Next.js/Vercel environments)
+    window.location.href = '/competitors'
   }
 
   return (
