@@ -83,6 +83,10 @@ function hasValidSession(request: NextRequest): boolean {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const authenticated = hasValidSession(request)
+  if (pathname !== '/login') {
+    const cookieNames = request.cookies.getAll().map((c) => c.name)
+    console.log(`[proxy] ${pathname} authenticated=${authenticated} cookies=${JSON.stringify(cookieNames)}`)
+  }
 
   if (!authenticated && pathname !== '/login') {
     const url = request.nextUrl.clone()
