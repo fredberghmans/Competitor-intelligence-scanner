@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useTransition, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2, Globe, MapPin, Play, CheckCircle, AlertCircle, Loader2, Lightbulb, TableProperties, ChevronDown } from 'lucide-react'
+import { Pencil, Trash2, Globe, MapPin, Play, CheckCircle, AlertCircle, Loader2, Lightbulb, TableProperties, ChevronDown, Square } from 'lucide-react'
 import Badge, { competitorTypeBadge, competitorTypeLabel } from '@/components/ui/badge'
 import { deleteCompetitorAction } from '@/lib/actions/competitors'
 import type { Competitor, Scan } from '@/lib/supabase/types'
@@ -58,9 +58,12 @@ export default function CompetitorCard({
   const [isPending, startTransition] = useTransition()
   const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
   const [scanMessage, setScanMessage] = useState<string>('')
-  const [scanMode, setScanMode] = useState<'crawl' | 'research' | 'both'>('crawl')
+  const [elapsed, setElapsed] = useState(0)
+  const [scanMode, setScanMode] = useState<'crawl' | 'research' | 'both'>('research')
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     if (!dropdownOpen) return
@@ -81,21 +84,39 @@ export default function CompetitorCard({
     })
   }
 
+  function handleStop() {
+    abortRef.current?.abort()
+    if (timerRef.current) clearInterval(timerRef.current)
+    setScanStatus('idle')
+    setScanMessage('')
+    setElapsed(0)
+  }
+
   async function handleRunScan(mode: 'crawl' | 'research' | 'both' = scanMode) {
+    const controller = new AbortController()
+    abortRef.current = controller
     setScanStatus('running')
-    setScanMessage(mode === 'research' ? 'Starting…' : '')
+    setScanMessage(mode === 'research' ? 'Starting…' : 'Scanning…')
+    setElapsed(0)
     setDropdownOpen(false)
+
+    // Elapsed timer — updates every second while running
+    timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
+
     try {
       const res = await fetch(`/api/scans?mode=${mode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ competitorId: competitor.id }),
+        signal: controller.signal,
       })
 
       if (!res.ok) {
+        if (timerRef.current) clearInterval(timerRef.current)
         const data = await res.json().catch(() => ({}))
         setScanStatus('error')
-        setScanMessage(data?.error ?? 'Scan failed')
+        const msg = data?.error ?? 'Scan failed'
+        setScanMessage(msg.length > 120 ? msg.slice(0, 120) + '…' : msg)
         return
       }
 
@@ -116,9 +137,13 @@ export default function CompetitorCard({
             try {
               const event = JSON.parse(line.slice(6))
               if (event.type === 'turn') {
-                const label = event.query ? `"${event.query.slice(0, 40)}${event.query.length > 40 ? '…' : ''}"` : 'searching…'
-                setScanMessage(`Turn ${event.turn}/${event.maxTurns} · ${label}`)
+                const label = event.query
+                  ? event.query.slice(0, 50) + (event.query.length > 50 ? '…' : '')
+                  : 'Searching…'
+                const prefix = event.maxTurns > 1 ? `Turn ${event.turn}/${event.maxTurns} · ` : ''
+                setScanMessage(prefix + label)
               } else if (event.type === 'result') {
+                if (timerRef.current) clearInterval(timerRef.current)
                 setScanStatus('done')
                 const s = event.summary
                 setScanMessage(
@@ -126,8 +151,10 @@ export default function CompetitorCard({
                 )
                 router.refresh()
               } else if (event.type === 'error') {
+                if (timerRef.current) clearInterval(timerRef.current)
                 setScanStatus('error')
-                setScanMessage(event.message ?? 'Research failed')
+                const msg = event.message ?? 'Research failed'
+                setScanMessage(msg.length > 120 ? msg.slice(0, 120) + '…' : msg)
               }
             } catch {
               // malformed event line — skip
@@ -138,6 +165,7 @@ export default function CompetitorCard({
       }
 
       // Crawl mode (or both) — regular JSON response
+      if (timerRef.current) clearInterval(timerRef.current)
       const data = await res.json()
       setScanStatus('done')
       const summary = data?.summary ?? data?.crawl
@@ -147,7 +175,9 @@ export default function CompetitorCard({
           : 'Scan complete'
       )
       router.refresh()
-    } catch {
+    } catch (err) {
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (err instanceof Error && err.name === 'AbortError') return // user stopped it
       setScanStatus('error')
       setScanMessage('Network error')
     }
@@ -195,9 +225,20 @@ export default function CompetitorCard({
 
       {/* Scan status — inline feedback while running, DB badge otherwise */}
       {scanStatus === 'running' ? (
-        <div className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-indigo-50 text-indigo-600">
-          <Loader2 size={12} className="animate-spin shrink-0" />
-          <span>Scanning…</span>
+        <div className="flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg bg-indigo-50 text-indigo-600">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Loader2 size={12} className="animate-spin shrink-0" />
+            <span className="truncate">{scanMessage || 'Scanning…'}</span>
+            <span className="shrink-0 tabular-nums text-indigo-400">{elapsed}s</span>
+          </div>
+          <button
+            onClick={handleStop}
+            className="shrink-0 flex items-center gap-1 text-indigo-500 hover:text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded transition-colors"
+            title="Stop scan"
+          >
+            <Square size={10} />
+            Stop
+          </button>
         </div>
       ) : scanStatus === 'done' ? (
         <div className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700">
@@ -270,9 +311,9 @@ export default function CompetitorCard({
             <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1">
               {(
                 [
-                  { mode: 'crawl', label: 'Crawl', desc: 'Fast, static pages' },
-                  { mode: 'research', label: 'Research', desc: 'AI web search' },
-                  { mode: 'both', label: 'Crawl + Research', desc: 'Most thorough' },
+                  { mode: 'crawl', label: 'Crawl', desc: 'Reads pages directly · ~$0.007' },
+                  { mode: 'research', label: 'Research', desc: 'AI searches the web · ~$0.10' },
+                  { mode: 'both', label: 'Crawl + Research', desc: 'Both methods · ~$0.15' },
                 ] as const
               ).map(({ mode, label, desc }) => (
                 <button

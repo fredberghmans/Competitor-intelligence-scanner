@@ -167,9 +167,13 @@ function DataRow({ row }: { row: DataPointRow }) {
 
 function EmptyRow({ criterion }: { criterion: Criteria }) {
   return (
-    <tr className="opacity-40">
-      <td className="py-3 px-5 text-slate-500 text-sm">{criterion.name}</td>
-      <td className="py-3 px-5 text-slate-300 text-sm italic">Not yet extracted</td>
+    <tr>
+      <td className="py-3 px-5 text-slate-400 text-sm">{criterion.name}</td>
+      <td className="py-3 px-5">
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded px-2 py-0.5">
+          Not found
+        </span>
+      </td>
       <td className="py-3 px-5" />
       <td className="py-3 px-5" />
       <td className="py-3 px-5" />

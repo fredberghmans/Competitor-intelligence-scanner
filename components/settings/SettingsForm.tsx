@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Bot, Key, CheckCircle, AlertCircle, Loader2, ShieldCheck } from 'lucide-react'
+import { Bot, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import type { AppSettings, AIProvider } from '@/lib/settings'
 import { saveSettingsAction } from '@/app/(dashboard)/settings/actions'
 
@@ -15,7 +15,7 @@ const PROVIDERS: { id: AIProvider; label: string; description: string; costNote:
   {
     id: 'gemini',
     label: 'Google Gemini',
-    description: 'Uses Gemini Flash for classification & extraction, Gemini Pro for insights. Research uses Gemini + Google Search grounding.',
+    description: 'Uses Gemini 2.0 Flash for all operations. Research uses Gemini 2.0 Flash + Google Search grounding.',
     costNote: '~$0.001 per crawl scan · ~$0.01–0.05 per research scan',
   },
 ]
@@ -77,28 +77,15 @@ export default function SettingsForm({ initialSettings }: { initialSettings: App
         </div>
       </div>
 
-      {/* Gemini API key — env var instructions, never stored in DB */}
+      {/* Gemini API key status */}
       {provider === 'gemini' && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <ShieldCheck size={14} className="text-emerald-500" />
-            API Key — set via environment variable
-          </div>
-          <p className="text-xs text-slate-500">
-            For security, the Gemini API key is never stored in the database. Add it to your{' '}
-            <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-700">.env.local</code> file:
-          </p>
-          <pre className="text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 font-mono select-all">
-            GEMINI_API_KEY=AIzaSy…
-          </pre>
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${initialSettings.gemini_api_key ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            <span className="text-xs text-slate-500">
-              {initialSettings.gemini_api_key
-                ? 'Key detected — Gemini is ready to use'
-                : 'Key not found — add GEMINI_API_KEY to .env.local then restart the server'}
-            </span>
-          </div>
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${initialSettings.gemini_api_key ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+          <span className="text-xs text-slate-500">
+            {initialSettings.gemini_api_key
+              ? 'Gemini API key detected — ready to use'
+              : 'GEMINI_API_KEY not found in .env.local — add it and restart the server'}
+          </span>
         </div>
       )}
 
