@@ -1,0 +1,6 @@
+- Only public data
+- Must include source linking
+- Must avoid hallucination
+- Must use diff-based processing
+- Must support cheap vs expensive models
+- Must be portable to Azure
