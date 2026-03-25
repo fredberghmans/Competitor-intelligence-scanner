@@ -1,14 +1,16 @@
 import Link from 'next/link'
 import { Plus, Building2 } from 'lucide-react'
-import { getCompetitors } from '@/lib/competitors'
+import { getCompetitors, getLatestScans } from '@/lib/competitors'
 import CompetitorCard from '@/components/competitors/CompetitorCard'
-import type { Competitor } from '@/lib/supabase/types'
+import type { Competitor, Scan } from '@/lib/supabase/types'
 
 export default async function CompetitorsPage() {
   let competitors: Competitor[] = []
+  let latestScans: Record<string, Scan> = {}
 
   try {
     competitors = await getCompetitors()
+    latestScans = await getLatestScans(competitors.map((c) => c.id))
   } catch {
     // DB not yet configured — show empty state
   }
@@ -38,7 +40,7 @@ export default async function CompetitorsPage() {
       {competitors.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {competitors.map((c) => (
-            <CompetitorCard key={c.id} competitor={c} />
+            <CompetitorCard key={c.id} competitor={c} latestScan={latestScans[c.id] ?? null} />
           ))}
         </div>
       ) : (

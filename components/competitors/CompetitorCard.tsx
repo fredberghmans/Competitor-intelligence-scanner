@@ -1,16 +1,63 @@
 'use client'
 
 import Link from 'next/link'
-import { useTransition } from 'react'
+import { useTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2, Globe, MapPin } from 'lucide-react'
+import { Pencil, Trash2, Globe, MapPin, Play, CheckCircle, AlertCircle, Loader2, Lightbulb, TableProperties } from 'lucide-react'
 import Badge, { competitorTypeBadge, competitorTypeLabel } from '@/components/ui/badge'
 import { deleteCompetitorAction } from '@/lib/actions/competitors'
-import type { Competitor } from '@/lib/supabase/types'
+import type { Competitor, Scan } from '@/lib/supabase/types'
 
-export default function CompetitorCard({ competitor }: { competitor: Competitor }) {
+type ScanStatus = 'idle' | 'running' | 'done' | 'error'
+
+function ScanStatusBadge({ scan }: { scan: Scan }) {
+  const relativeTime = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime()
+    const mins = Math.floor(diff / 60_000)
+    if (mins < 1) return 'just now'
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    return `${Math.floor(hrs / 24)}d ago`
+  }
+
+  const ts = scan.completed_at ?? scan.started_at ?? scan.created_at
+
+  if (scan.status === 'running' || scan.status === 'pending') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+        <Loader2 size={10} className="animate-spin" />
+        Scanning…
+      </span>
+    )
+  }
+  if (scan.status === 'completed') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+        <CheckCircle size={10} />
+        Scanned {relativeTime(ts)}
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
+      <AlertCircle size={10} />
+      Failed {relativeTime(ts)}
+    </span>
+  )
+}
+
+export default function CompetitorCard({
+  competitor,
+  latestScan,
+}: {
+  competitor: Competitor
+  latestScan: Scan | null
+}) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
+  const [scanMessage, setScanMessage] = useState<string>('')
 
   function handleDelete() {
     if (!confirm(`Delete "${competitor.name}"? This cannot be undone.`)) return
@@ -18,6 +65,35 @@ export default function CompetitorCard({ competitor }: { competitor: Competitor 
       await deleteCompetitorAction(competitor.id)
       router.refresh()
     })
+  }
+
+  async function handleRunScan() {
+    setScanStatus('running')
+    setScanMessage('')
+    try {
+      const res = await fetch('/api/scans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ competitorId: competitor.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setScanStatus('error')
+        setScanMessage(data?.error ?? 'Scan failed')
+      } else {
+        setScanStatus('done')
+        const summary = data?.summary
+        setScanMessage(
+          summary
+            ? `${summary.pagesFound ?? 0} pages · ${summary.pagesChanged ?? 0} changes`
+            : 'Scan complete'
+        )
+        router.refresh()
+      }
+    } catch {
+      setScanStatus('error')
+      setScanMessage('Network error')
+    }
   }
 
   return (
@@ -60,6 +136,28 @@ export default function CompetitorCard({ competitor }: { competitor: Competitor 
         </div>
       )}
 
+      {/* Scan status — inline feedback while running, DB badge otherwise */}
+      {scanStatus === 'running' ? (
+        <div className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-indigo-50 text-indigo-600">
+          <Loader2 size={12} className="animate-spin shrink-0" />
+          <span>Scanning…</span>
+        </div>
+      ) : scanStatus === 'done' ? (
+        <div className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700">
+          <CheckCircle size={12} className="shrink-0" />
+          <span>{scanMessage}</span>
+        </div>
+      ) : scanStatus === 'error' ? (
+        <div className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600">
+          <AlertCircle size={12} className="shrink-0" />
+          <span>{scanMessage}</span>
+        </div>
+      ) : latestScan ? (
+        <div>
+          <ScanStatusBadge scan={latestScan} />
+        </div>
+      ) : null}
+
       {/* Actions */}
       <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
         <Link
@@ -69,6 +167,32 @@ export default function CompetitorCard({ competitor }: { competitor: Competitor 
           <Pencil size={12} />
           Edit
         </Link>
+        <Link
+          href={`/competitors/${competitor.id}/insights`}
+          className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+        >
+          <Lightbulb size={12} />
+          Insights
+        </Link>
+        <Link
+          href={`/competitors/${competitor.id}/data`}
+          className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+        >
+          <TableProperties size={12} />
+          Data
+        </Link>
+        <button
+          onClick={handleRunScan}
+          disabled={scanStatus === 'running'}
+          className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 px-2.5 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {scanStatus === 'running' ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Play size={12} />
+          )}
+          {scanStatus === 'running' ? 'Scanning…' : 'Run Scan'}
+        </button>
         <button
           onClick={handleDelete}
           className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-red-600 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors ml-auto"

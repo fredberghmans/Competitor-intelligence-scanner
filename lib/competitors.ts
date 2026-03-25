@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import type { Competitor, CompetitorDomain } from '@/lib/supabase/types'
+import type { Competitor, CompetitorDomain, Scan } from '@/lib/supabase/types'
 
 // -------------------------------------------------------------
 // Input types
@@ -28,6 +28,32 @@ export async function getCompetitors(): Promise<Competitor[]> {
 
   if (error) throw error
   return data
+}
+
+/**
+ * Returns a map of competitorId → their most recent scan row.
+ * Used by the competitors grid to show a persistent scan status badge.
+ */
+export async function getLatestScans(
+  competitorIds: string[],
+): Promise<Record<string, Scan>> {
+  if (competitorIds.length === 0) return {}
+  const supabase = await createClient()
+
+  // Fetch all scans for these competitors, newest first, then deduplicate by competitor
+  const { data, error } = await supabase
+    .from('scans')
+    .select('*')
+    .in('competitor_id', competitorIds)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+
+  const map: Record<string, Scan> = {}
+  for (const scan of data as Scan[]) {
+    if (!map[scan.competitor_id]) map[scan.competitor_id] = scan
+  }
+  return map
 }
 
 export async function getCompetitor(id: string): Promise<Competitor | null> {

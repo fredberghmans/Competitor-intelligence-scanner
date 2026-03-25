@@ -7,7 +7,7 @@ import { Building2, Target, BarChart3, Clock, Cpu } from 'lucide-react'
 const nav = [
   { href: '/competitors', label: 'Competitors', icon: Building2 },
   { href: '/criteria', label: 'Criteria', icon: Target },
-  { href: '/compare', label: 'Compare', icon: BarChart3, soon: true },
+  { href: '/compare', label: 'Compare', icon: BarChart3 },
   { href: '/changelog', label: 'Changelog', icon: Clock, soon: true },
 ]
 
