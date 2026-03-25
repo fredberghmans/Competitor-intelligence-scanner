@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     // Print each test name as it runs for clear CI output
-    reporter: 'verbose',
+    reporters: ['verbose'],
   },
   resolve: {
     alias: {
