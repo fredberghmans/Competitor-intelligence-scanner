@@ -1,11 +1,17 @@
+import { redirect } from 'next/navigation'
 import { Cpu } from 'lucide-react'
 import { loginAction } from '@/lib/actions/auth'
+import { createClient } from '@/lib/supabase/server'
 
 type Props = {
   searchParams: Promise<{ error?: string }>
 }
 
 export default async function LoginPage({ searchParams }: Props) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) redirect('/competitors')
+
   const { error } = await searchParams
 
   return (
