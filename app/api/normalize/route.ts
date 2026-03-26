@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       if (fetchErr || !points || points.length < 2) continue
 
       const criteriaName =
-        (points[0] as { criteria: { name: string } | null }).criteria?.name ?? cid
+        (points[0] as unknown as { criteria: { name: string } | null }).criteria?.name ?? cid
 
       const entries = (points as Array<{ competitor_id: string; value: string }>).map((p) => ({
         competitorId: p.competitor_id,
