@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 import type { ModelKey } from './client'
 
 function cleanGeminiError(err: unknown): Error {
@@ -13,7 +13,6 @@ function cleanGeminiError(err: unknown): Error {
   if (msg.includes('404')) {
     return new Error(`Gemini 404: ${msg.split('\n')[0].slice(0, 300)}`)
   }
-  // Return first line only to avoid dumping the full JSON error object
   return new Error(msg.split('\n')[0].slice(0, 200))
 }
 
@@ -22,7 +21,8 @@ function cleanGeminiError(err: unknown): Error {
  *   cheap    → gemini-2.5-flash-preview-04-17  (fast, cheap, structured JSON)
  *   advanced → gemini-2.5-pro                  (stronger reasoning for insights)
  *
- * gemini-2.0-flash / gemini-2.0-flash-001 are no longer available to new API keys.
+ * Uses @google/genai SDK (v1 endpoint) — required for Gemini 2.5 models.
+ * The older @google/generative-ai SDK (v1beta) does not support these models.
  */
 const GEMINI_MODELS: Record<ModelKey, string> = {
   cheap: 'gemini-2.5-flash-preview-04-17',
@@ -40,24 +40,25 @@ export async function callGemini(
   apiKey: string,
   maxTokens = 1024,
 ): Promise<string> {
-  const genai = new GoogleGenerativeAI(apiKey)
-  const model = genai.getGenerativeModel({
-    model: GEMINI_MODELS[modelKey],
-    systemInstruction: system,
-    generationConfig: { maxOutputTokens: maxTokens },
-  })
+  const ai = new GoogleGenAI({ apiKey })
 
   try {
-    const result = await model.generateContent(user)
-    return result.response.text()
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODELS[modelKey],
+      contents: user,
+      config: {
+        systemInstruction: system,
+        maxOutputTokens: maxTokens,
+      },
+    })
+    return response.text ?? ''
   } catch (err) {
     throw cleanGeminiError(err)
   }
 }
 
 /**
- * Runs a Gemini research call using Google Search grounding (Gemini 2.0).
- * Gemini 2.0 uses { googleSearch: {} } — googleSearchRetrieval was for 1.5 only.
+ * Runs a Gemini research call using Google Search grounding (Gemini 2.5).
  */
 export async function researchWithGemini(
   systemPrompt: string,
@@ -65,20 +66,22 @@ export async function researchWithGemini(
   apiKey: string,
   onProgress?: (msg: string) => void,
 ): Promise<string> {
-  const genai = new GoogleGenerativeAI(apiKey)
+  const ai = new GoogleGenAI({ apiKey })
 
   onProgress?.('Searching with Gemini + Google Search…')
 
-  const model = genai.getGenerativeModel({
-    model: 'gemini-2.5-flash-preview-04-17',
-    systemInstruction: systemPrompt,
-    generationConfig: { maxOutputTokens: 8192 },
-  })
-
   try {
-    const result = await model.generateContent(userPrompt)
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-preview-04-17',
+      contents: userPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        maxOutputTokens: 8192,
+        tools: [{ googleSearch: {} }],
+      },
+    })
     onProgress?.('Processing results…')
-    return result.response.text()
+    return response.text ?? ''
   } catch (err) {
     throw cleanGeminiError(err)
   }
