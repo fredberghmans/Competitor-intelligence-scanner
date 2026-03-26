@@ -30,7 +30,7 @@ const GEMINI_MODELS: Record<ModelKey, string> = {
 }
 
 function makeClient(apiKey: string) {
-  return new GoogleGenAI({ apiKey, httpOptions: { apiVersion: 'v1alpha' } })
+  return new GoogleGenAI({ apiKey })
 }
 
 /**
