@@ -11,7 +11,7 @@ function cleanGeminiError(err: unknown): Error {
     return new Error('Gemini API key is invalid or missing. Check GEMINI_API_KEY in .env.local.')
   }
   if (msg.includes('404')) {
-    return new Error('Gemini model not found — the model name may have changed. Check https://ai.google.dev/gemini-api/docs/models')
+    return new Error(`Gemini 404: ${msg.split('\n')[0].slice(0, 300)}`)
   }
   // Return first line only to avoid dumping the full JSON error object
   return new Error(msg.split('\n')[0].slice(0, 200))
