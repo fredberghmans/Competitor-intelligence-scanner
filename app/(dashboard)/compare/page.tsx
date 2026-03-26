@@ -64,16 +64,16 @@ function CompareTable({
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50">
+          <tr className="border-b border-slate-200 bg-slate-50 sticky top-0 z-20">
             {/* Criterion label column */}
-            <th className="text-left py-3 px-5 text-xs font-semibold uppercase tracking-widest text-slate-400 w-48 sticky left-0 bg-slate-50 z-10 border-r border-slate-100">
+            <th className="text-left py-3 px-5 text-xs font-semibold uppercase tracking-widest text-slate-400 w-48 sticky left-0 bg-slate-50 z-30 border-r border-slate-100">
               Criterion
             </th>
             {/* One column per competitor */}
             {competitors.map((c) => (
               <th
                 key={c.id}
-                className="text-left py-3 px-4 text-xs font-semibold text-slate-700 min-w-[180px] border-r border-slate-100 last:border-r-0"
+                className="text-left py-3 px-4 text-xs font-semibold text-slate-700 min-w-[180px] border-r border-slate-100 last:border-r-0 bg-slate-50"
               >
                 <Link
                   href={`/competitors/${c.id}/data`}
