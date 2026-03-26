@@ -3,7 +3,8 @@ import type { Competitor, Criteria, DataPoint } from '@/lib/supabase/types'
 import type { CriteriaTree } from '@/lib/criteria'
 
 export type CompareCell = {
-  value: string
+  value: string         // raw extracted value — never modified
+  displayValue: string  // normalized_value if available, else value
   confidence: DataPoint['confidence']
   source_url: string | null
   updated_at: string
@@ -93,6 +94,7 @@ export async function getCompareData(
           totalFilled++
           cells[comp.id] = {
             value: dp.value,
+            displayValue: dp.normalized_value ?? dp.value,
             confidence: dp.confidence,
             source_url: dp.source_url,
             updated_at: dp.updated_at,

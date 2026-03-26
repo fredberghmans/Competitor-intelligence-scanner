@@ -60,7 +60,7 @@ export async function generateInsights(
       'advanced',
       insightsSystem(),
       insightsUser(competitorName, dataPoints, referenceDataPoints),
-      2048,
+      4096,
     )
 
     const parsed = parseJSON<InsightOutput>(raw)
@@ -79,6 +79,12 @@ export async function generateInsights(
       },
       benchmarks: parsed.benchmarks ?? [],
       recommendations: (parsed.recommendations ?? []).slice(0, 5), // cap at 5
+    }
+
+    // If the model returned an empty/unparseable response, treat as failure
+    if (!insights.executive_summary.tldr) {
+      log('insights', `Model returned empty insights — raw response: ${raw.slice(0, 300)}`)
+      return null
     }
 
     log('insights', 'Generated', {

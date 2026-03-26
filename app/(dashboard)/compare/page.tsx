@@ -146,7 +146,7 @@ function Cell({ cell }: { cell: CompareCell }) {
   return (
     <div className="flex items-start gap-1.5 group/cell">
       <div className="flex-1 min-w-0">
-        <p className="text-slate-700 leading-relaxed text-sm">{cell.value}</p>
+        <p className="text-slate-700 leading-relaxed text-sm">{cell.displayValue}</p>
         <div className="flex items-center gap-2 mt-1">
           <ConfidenceDot confidence={cell.confidence} />
           <span className="text-[10px] text-slate-300">{relativeTime(cell.updated_at)}</span>

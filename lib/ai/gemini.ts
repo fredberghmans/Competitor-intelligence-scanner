@@ -27,7 +27,7 @@ function cleanGeminiError(err: unknown): Error {
  */
 const GEMINI_MODELS: Record<ModelKey, string> = {
   cheap: 'gemini-2.0-flash',
-  advanced: 'gemini-2.5-pro',
+  advanced: 'gemini-2.0-flash',
 }
 
 /**
@@ -71,7 +71,7 @@ export async function researchWithGemini(
   onProgress?.('Searching with Gemini + Google Search…')
 
   const model = genai.getGenerativeModel({
-    model: 'gemini-2.5-pro',
+    model: 'gemini-2.0-flash',
     systemInstruction: systemPrompt,
     generationConfig: { maxOutputTokens: 8192 },
   })

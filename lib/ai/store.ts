@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import type { ExtractedDataPoint, InsightOutput } from './types'
 import { log } from './client'
+import { normalizeCriteriaValues } from './normalize'
 
 /**
  * Persists extracted data points to the `data_points` table.
@@ -43,6 +44,44 @@ export async function saveDataPoints(
 
   if (error) throw error
   log('store', `Saved ${rows.length} data point(s) for competitor ${competitorId}`)
+
+  // Normalize values for all affected criteria (best-effort — never throws)
+  try {
+    const affectedCriteriaIds = [...new Set(rows.map((r) => r.criteria_id))]
+
+    for (const criteriaId of affectedCriteriaIds) {
+      // Fetch all data points + criteria name for this criterion (all competitors)
+      const { data: allPoints, error: fetchErr } = await supabase
+        .from('data_points')
+        .select('competitor_id, value, criteria:criteria_id(name)')
+        .eq('criteria_id', criteriaId)
+
+      if (fetchErr || !allPoints || allPoints.length === 0) continue
+
+      const criteriaName =
+        (allPoints[0] as { criteria: { name: string } | null }).criteria?.name ?? criteriaId
+
+      const entries = (allPoints as Array<{ competitor_id: string; value: string }>).map((p) => ({
+        competitorId: p.competitor_id,
+        value: p.value,
+      }))
+
+      const normalized = await normalizeCriteriaValues(criteriaName, entries)
+      if (normalized.size === 0) continue
+
+      for (const [cid, normalizedValue] of normalized) {
+        await supabase
+          .from('data_points')
+          .update({ normalized_value: normalizedValue })
+          .eq('competitor_id', cid)
+          .eq('criteria_id', criteriaId)
+      }
+
+      log('store', `Normalized ${normalized.size} value(s) for criterion "${criteriaName}"`)
+    }
+  } catch (normErr) {
+    log('store', `Normalization pass failed (non-fatal): ${String(normErr)}`)
+  }
 }
 
 /**

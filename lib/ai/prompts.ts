@@ -86,6 +86,42 @@ If nothing concrete can be extracted, return an empty array: []`
 }
 
 // ---------------------------------------------------------------------------
+// Normalization — canonical display values for the compare page
+// ---------------------------------------------------------------------------
+
+export function normalizationSystem(): string {
+  return `You are a data normalization specialist for competitive intelligence.
+Your task is to produce canonical, comparable display values from varied phrasings of the same fact.
+You must respond with valid JSON only — no prose, no markdown fences.`
+}
+
+export function normalizationUser(
+  criteriaName: string,
+  entries: Array<{ competitorId: string; value: string }>,
+): string {
+  return `Normalize these competitor values for the criterion: "${criteriaName}"
+
+Each value was extracted verbatim from a different competitor's website.
+Produce a concise, canonical form of each value that enables clear cross-competitor comparison.
+
+RULES:
+- Keep the canonical value short (under 15 words)
+- Preserve factual precision — do not round numbers or drop qualifications
+- Use consistent phrasing across entries that express the same fact
+- If values are genuinely different facts, preserve their distinctiveness
+- Use the original currency symbol + amount (e.g. "CHF 0", not "Free")
+- Never invent information not present in the original value
+
+INPUT:
+${JSON.stringify(entries, null, 2)}
+
+Respond with a JSON array matching every input competitorId:
+[
+  { "competitorId": "<id>", "normalizedValue": "<canonical form>" }
+]`
+}
+
+// ---------------------------------------------------------------------------
 // Stage 3 — Insights
 // ---------------------------------------------------------------------------
 

@@ -68,6 +68,7 @@ export type DataPoint = {
   criteria_id: string
   scan_id: string | null
   value: string
+  normalized_value: string | null
   confidence: Confidence
   source_url: string | null
   created_at: string

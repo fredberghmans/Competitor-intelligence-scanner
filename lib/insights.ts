@@ -52,15 +52,23 @@ export async function getLatestInsights(
     }
   }
 
-  // Fetch insight rows for that scan
-  const { data: rows } = await supabase
+  // Fetch insight rows — use the most recent scan that actually has insights,
+  // not necessarily the latest scan (which may have found no changes)
+  const { data: allInsightRows } = await supabase
     .from('insights')
     .select('*')
     .eq('competitor_id', competitorId)
-    .eq('scan_id', latestScan.id)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  const rows: Insight[] = []
+  if (allInsightRows && allInsightRows.length > 0) {
+    const latestScanWithInsights = allInsightRows[0].scan_id
+    rows.push(...(allInsightRows as Insight[]).filter((r) => r.scan_id === latestScanWithInsights))
+  }
 
   const parse = <T>(type: Insight['type']): T | null => {
-    const row = (rows ?? []).find((r: Insight) => r.type === type)
+    const row = rows.find((r: Insight) => r.type === type)
     if (!row) return null
     try {
       return JSON.parse(row.content) as T
