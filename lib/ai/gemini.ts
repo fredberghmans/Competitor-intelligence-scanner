@@ -18,15 +18,19 @@ function cleanGeminiError(err: unknown): Error {
 
 /**
  * Gemini model equivalents:
- *   cheap    → gemini-2.5-flash-preview-04-17  (fast, cheap, structured JSON)
- *   advanced → gemini-2.5-pro                  (stronger reasoning for insights)
+ *   cheap    → gemini-2.5-flash  (fast, cheap, structured JSON)
+ *   advanced → gemini-2.5-pro    (stronger reasoning for insights)
  *
- * Uses @google/genai SDK (v1 endpoint) — required for Gemini 2.5 models.
- * The older @google/generative-ai SDK (v1beta) does not support these models.
+ * Uses @google/genai SDK with apiVersion v1alpha — required for Gemini 2.5
+ * preview models. Both v1 and v1beta return 404 for these models.
  */
 const GEMINI_MODELS: Record<ModelKey, string> = {
-  cheap: 'gemini-2.5-flash-preview-04-17',
+  cheap: 'gemini-2.5-flash',
   advanced: 'gemini-2.5-pro',
+}
+
+function makeClient(apiKey: string) {
+  return new GoogleGenAI({ apiKey, httpOptions: { apiVersion: 'v1alpha' } })
 }
 
 /**
@@ -40,7 +44,7 @@ export async function callGemini(
   apiKey: string,
   maxTokens = 1024,
 ): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey })
+  const ai = makeClient(apiKey)
 
   try {
     const response = await ai.models.generateContent({
@@ -66,13 +70,13 @@ export async function researchWithGemini(
   apiKey: string,
   onProgress?: (msg: string) => void,
 ): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey })
+  const ai = makeClient(apiKey)
 
   onProgress?.('Searching with Gemini + Google Search…')
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-04-17',
+      model: 'gemini-2.5-flash',
       contents: userPrompt,
       config: {
         systemInstruction: systemPrompt,
