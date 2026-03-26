@@ -19,15 +19,15 @@ function cleanGeminiError(err: unknown): Error {
 
 /**
  * Gemini model equivalents:
- *   cheap    → gemini-2.0-flash       (fast, very cheap, good at structured JSON)
- *   advanced → gemini-2.0-flash       (same model, used for insights)
+ *   cheap    → gemini-2.0-flash-001   (stable versioned ID for fast/cheap tasks)
+ *   advanced → gemini-2.0-flash-001   (same model, used for insights)
  *
- * Note: gemini-1.5-pro / gemini-1.5-flash aliases were removed from the v1beta API.
- * Use explicit versioned IDs or gemini-2.0-flash instead.
+ * Use explicit versioned IDs — unversioned aliases (e.g. gemini-2.0-flash)
+ * can return 404 when Google rotates the default without notice.
  */
 const GEMINI_MODELS: Record<ModelKey, string> = {
-  cheap: 'gemini-2.0-flash',
-  advanced: 'gemini-2.0-flash',
+  cheap: 'gemini-2.0-flash-001',
+  advanced: 'gemini-2.0-flash-001',
 }
 
 /**
@@ -71,7 +71,7 @@ export async function researchWithGemini(
   onProgress?.('Searching with Gemini + Google Search…')
 
   const model = genai.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.0-flash-001',
     systemInstruction: systemPrompt,
     generationConfig: { maxOutputTokens: 8192 },
   })
