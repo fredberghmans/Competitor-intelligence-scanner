@@ -29,7 +29,10 @@ export default async function InsightsPage({
     data
 
   const hasAnyInsight =
-    executive_summary || changes_summary || benchmarks.length > 0 || recommendations.length > 0
+    executive_summary?.tldr ||
+    changes_summary?.summary ||
+    benchmarks.length > 0 ||
+    recommendations.length > 0
 
   return (
     <div className="px-8 py-8 max-w-5xl mx-auto">
@@ -67,7 +70,7 @@ export default async function InsightsPage({
       ) : (
         <div className="space-y-6">
           {/* Executive summary */}
-          {executive_summary && (
+          {executive_summary?.tldr && (
             <Section icon={FileText} title="Executive Summary" iconColor="text-indigo-600" iconBg="bg-indigo-50">
               <p className="text-slate-700 leading-relaxed mb-5">{executive_summary.tldr}</p>
 
@@ -114,7 +117,7 @@ export default async function InsightsPage({
           )}
 
           {/* Changes summary */}
-          {changes_summary && (
+          {changes_summary?.summary && (
             <Section icon={Zap} title="Recent Changes" iconColor="text-amber-600" iconBg="bg-amber-50">
               <p className="text-slate-700 leading-relaxed mb-4">{changes_summary.summary}</p>
               {changes_summary.highlights?.length > 0 && (
