@@ -81,7 +81,6 @@ export async function researchWithGemini(
       config: {
         systemInstruction: systemPrompt,
         maxOutputTokens: 8192,
-        tools: [{ googleSearch: {} }],
       },
     })
     onProgress?.('Processing results…')
