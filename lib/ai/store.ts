@@ -59,7 +59,7 @@ export async function saveDataPoints(
       if (fetchErr || !allPoints || allPoints.length === 0) continue
 
       const criteriaName =
-        (allPoints[0] as { criteria: { name: string } | null }).criteria?.name ?? criteriaId
+        (allPoints[0] as unknown as { criteria: { name: string } | null }).criteria?.name ?? criteriaId
 
       const entries = (allPoints as Array<{ competitor_id: string; value: string }>).map((p) => ({
         competitorId: p.competitor_id,
